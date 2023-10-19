@@ -10,6 +10,7 @@ def create_app():
     app.config.from_object(Confing)
     
     db.init_app(app)
+   
     app.register_blueprint(api)
     
     @app.route("/init_db")
@@ -24,6 +25,5 @@ def create_app():
     
     @app.route("/")
     def hello():
-        return "Hello amiguitos"
-    
+        return "Hello amiguitos" 
     return app
