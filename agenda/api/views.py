@@ -13,7 +13,7 @@ from agenda.config import Config
 # Token Validation Decorator
 def token_required(func):
     @wraps(func)  # Mandatory user this decorator, flask do not accept simple decorators
-    def wrapper():
+    def wrapper(*args, **kwargs):
         authorization = request.headers.get("Authorization")
         prefix = 'Bearer '
         if not authorization:
@@ -39,7 +39,7 @@ def token_required(func):
         request.user = db.session.execute(
             db.select(models.User).where(models.User.id == payload["sub"])
         ).scalar_one()
-        return func()
+        return func(*args, **kwargs)
 
     return wrapper
 
@@ -126,3 +126,80 @@ def login():
         Config.SECRET_KEY,
         )
     return {"token": token}
+
+
+
+
+@api_blueprint.route("/contacts/<int:contact_id>", methods=["GET", "PUT", "DELETE"])
+@api_blueprint.route("/contacts/", methods=["GET", "POST"])
+@token_required
+def contacts_endpoint(contact_id=None):
+    try:
+        data = request.get_json()
+    except:
+        pass
+
+    if contact_id is not None:
+        contact = models.Contact.query.get_or_404(contact_id, 'Contact not found!!')
+
+        if request.method == 'GET':
+            return {
+                    "id": contact.id,
+                    "first_name": contact.first_name,
+                    "last_name": contact.last_name,
+                    "email": contact.email,
+                    "phone": contact.phone,
+                    "mobile": contact.mobile,
+                    "user_id": contact.user_id,
+                    "created_at": contact.created_at
+                    }
+
+        if request.method == 'PUT':
+            contact.first_name = data['first_name']
+            contact.last_name = data['last_name']
+            contact.phone = data['phone']
+            contact.mobile = data['mobile']
+            contact.email = data['email']
+            db.session.commit()
+            return {"detail": f"Contact {contact.email} was modified!!"}
+
+
+    if request.method == 'GET':
+        contacts_all = models.Contact.query.all()
+        # Returning object stored on dict using list comprehension
+        return [{
+            "id": contact.id,
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "phone": contact.phone,
+            "mobile": contact.mobile,
+            "email": contact.email,
+            "user_id": contact.user_id,
+            "created_at": contact.created_at
+        } for contact in contacts_all]
+
+    if request.method == "POST":
+        # Creating object
+        contact_instance = models.Contact(
+                                        first_name=data["first_name"],
+                                        last_name=data["last_name"],
+                                        phone = data["phone"],
+                                        mobile=data["mobile"],
+                                        email=data["email"],
+                                        user_id = request.user.id,
+                                        )
+        # Creating DB connection, and creating record
+        db.session.add(contact_instance)
+        # Applying Changes
+        db.session.commit()
+        return {"detail":f"Contact {contact_instance.email} created successfully!!"}
+
+    if request.method == "DELETE":
+        # Checking specie exist
+        contact = models.Contact.query.get_or_404(contact_id, "Pet not Found!!")
+        # Passing specie object to be deleted
+        db.session.delete(contact)
+        # Committing changes
+        db.session.commit()
+
+        return {"detail": f"Contact {contact.email} deleted successfully!!"}

@@ -1,6 +1,7 @@
 from agenda.db import db
 # Used to generated specific columns used by the model
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy.sql import func
 # Importing datatypes for creating Model
 from sqlalchemy import Integer, String, DateTime, ForeignKey
 import datetime
@@ -30,4 +31,7 @@ class Contact(db.Model):
     mobile = mapped_column(String(100), unique=True)
     user_id = mapped_column(Integer, ForeignKey("user.id"))
     users = db.relationship("User", back_populates="contacts")
-    created_at = mapped_column(DateTime, default=db.func.datetime)
+    #created_at = mapped_column(DateTime, default=db.func.datetime)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
