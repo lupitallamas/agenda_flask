@@ -15,7 +15,7 @@ import hashlib
 # Token Validation Decorator
 def token_required(func):
     @wraps(func)  # Mandatory user this decorator, flask do not accept simple decorators
-    def wrapper():
+    def wrapper(*args, **kwargs):
         authorization = request.headers.get("Authorization")
         prefix = 'Bearer '
         if not authorization:
@@ -32,7 +32,8 @@ def token_required(func):
 
         # Validates token still valid
         try:
-            payload = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
+            payload = jwt.decode(token, Confing.SECRET_KEY, algorithms=["HS256"])
+            
         except jwt.exceptions.ExpiredSignatureError:
             return {"detail" : "Token Expired"}, 401
         except jwt.exceptions.InvalidTokenError:
@@ -41,8 +42,8 @@ def token_required(func):
         request.user = db.session.execute(
             db.select(User).where(User.id == payload["sub"])
         ).scalar_one()
-        return func()
-
+        #return func()
+        return func(*args, **kwargs)
     return wrapper
 
 
@@ -111,7 +112,7 @@ def login():
         return {"detail": "Missing email or password"}, 400
 
     user = db.session.execute(
-        db.select(models.User).where(models.User.email == email)
+        db.select(User).where(User.email == email)
     ).scalar_one_or_none()
 
     # Checking if password is correct and also if user exist
@@ -126,13 +127,16 @@ def login():
             "iat": datetime.utcnow(),
             "exp": datetime.utcnow() + timedelta(minutes=30),
         },
-        Config.SECRET_KEY,
+         Confing.SECRET_KEY,
         )
     return {"token": token}
 #-------------------------------------------------------------------------------
 """Todos los contactos de un Usuario"""
-@api.route("user/<int:user_id>/", methods=["GET"])
-def contats_user(user_id=None):
+
+#@api.route("user/<int:user_id>", methods=["GET"])
+@api.route("user/", methods=["GET"])
+@token_required
+def contats_user():
     try:
         data = request.get_json()
     except:
@@ -145,13 +149,14 @@ def contats_user(user_id=None):
              "user_id":contact.user_id,
              "phone": contact.phone,
              "mobile": contact.mobile,
-             "email": contact.email} for contact in contacts if contact.user_id == user_id
+             "email": contact.email} for contact in contacts if contact.user_id == request.user.id
         ]
     
     
 """manejo del contacto"""
 @api.route("/contacts/<int:contact_id>", methods=["GET", "PUT", "DELETE"])
 @api.route("/contacts/", methods=["GET", "POST"])
+@token_required
 def contacts_endpoinst(contact_id=None):
     try:
         data = request.get_json()
@@ -195,7 +200,7 @@ def contacts_endpoinst(contact_id=None):
                  "user_id":contact.user_id,
                  "phone": contact.phone,
                  "mobile": contact.mobile,
-                 "email": contact.email} for contact in contacts
+                 "email": contact.email} for contact in contacts if contact.user_id == request.user.id
                 ]
 
     if request.method == "POST":
